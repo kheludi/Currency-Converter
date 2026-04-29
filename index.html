@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>NexusFX · World Currency Converter</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="converter-card">
+    <div class="card-header">
+        <div class="badge">
+            <span>💱</span> live forex · 170+ currencies
+        </div>
+        <h1>Currency Converter</h1>
+        <div class="sub">Real-time exchange rates · global coverage</div>
+    </div>
+    <div class="converter-body">
+        <!-- Amount Input -->
+        <div class="amount-group">
+            <span class="label-modern">Amount</span>
+            <div class="amount-input-wrapper">
+                <div class="currency-symbol" id="activeCurrencySymbol">$</div>
+                <input type="number" id="amountInput" class="amount-input" value="100.00" step="any" placeholder="0.00">
+            </div>
+        </div>
+
+        <!-- From / To Currency Selectors -->
+        <div class="currency-row">
+            <div class="currency-card">
+                <div class="currency-header">
+                    <span>FROM</span>
+                    <span id="fromRateHint" class="rate-badge">1 USD = ?</span>
+                </div>
+                <div class="select-wrapper">
+                    <select id="fromCurrency"></select>
+                </div>
+            </div>
+            <div class="currency-card">
+                <div class="currency-header">
+                    <span>TO</span>
+                    <span id="toRateHint" class="rate-badge">?</span>
+                </div>
+                <div class="select-wrapper">
+                    <select id="toCurrency"></select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result Panel -->
+        <div class="result-panel">
+            <div class="converted-area">
+                <span class="converted-label">Converted amount</span>
+                <span class="converted-value" id="convertedAmountDisplay">—</span>
+            </div>
+            <div class="live-rate" id="liveRateInfo">
+                <span>⚡ 1 USD → 0.00 XYZ</span>
+                <span id="rateTimestamp">rates live</span>
+            </div>
+            <div id="errorContainer" style="min-height: 28px;"></div>
+        </div>
+
+        <div class="action-bar">
+            <button id="swapButton" class="swap-btn">🔄 Swap currencies</button>
+            <div class="last-updated" id="updateTimestamp">Fetching data...</div>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
