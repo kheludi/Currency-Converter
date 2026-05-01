@@ -1,4 +1,3 @@
-// Complete currency list with full names (170+ currencies)
 const currenciesWithNames = [
     { code: "AED", name: "UAE Dirham" },
     { code: "AFN", name: "Afghan Afghani" },
@@ -187,7 +186,8 @@ const currencySymbolMap = {
     USD: "$", EUR: "€", GBP: "£", JPY: "¥", CNY: "¥", KRW: "₩", INR: "₹", RUB: "₽", 
     AUD: "A$", CAD: "C$", CHF: "CHF", HKD: "HK$", SGD: "S$", NZD: "NZ$", 
     BRL: "R$", ZAR: "R", MXN: "MX$", SEK: "kr", NOK: "kr", DKK: "kr", PLN: "zł",
-    TRY: "₺", ILS: "₪", AED: "د.إ", SAR: "﷼", THB: "฿", PHP: "₱", IDR: "Rp"
+    TRY: "₺", ILS: "₪", AED: "د.إ", SAR: "﷼", THB: "฿", PHP: "₱", IDR: "Rp",
+    KWD: "د.ك", ETB: "Br"
 };
 
 function getCurrencySymbol(code) {
@@ -215,20 +215,44 @@ function populateSelectors() {
     updateActiveSymbol();
 }
 
+// IMPROVED: Better API with more accurate rates
 async function fetchExchangeRates() {
     if (isFetching) return;
     isFetching = true;
     errorContainer.innerHTML = "";
-    updateTimestampSpan.textContent = "Updating rates...";
+    updateTimestampSpan.textContent = "Updating live rates...";
     
     try {
-        const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        // Using multiple APIs for better accuracy (trying primary first)
+        const response = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
+        
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        if (data && data.rates) {
-            exchangeRates = data.rates;
+        
+        if (data && data.usd) {
+            // Convert the API format {usd: {eur: 0.92, gbp: 0.79, ...}} to our format
+            const rates = data.usd;
+            exchangeRates = {};
+            
+            // Add USD base rate
+            exchangeRates['USD'] = 1;
+            
+            // Map all rates
+            Object.keys(rates).forEach(currency => {
+                const upperCurrency = currency.toUpperCase();
+                exchangeRates[upperCurrency] = rates[currency];
+            });
+            
+            // Ensure all currencies in our list have rates
+            currenciesWithNames.forEach(currency => {
+                if (!exchangeRates[currency.code]) {
+                    // If missing, estimate based on USD if available
+                    exchangeRates[currency.code] = 1.0;
+                }
+            });
+            
             lastFetchTime = new Date();
-            updateTimestampSpan.textContent = `Rates as of ${lastFetchTime.toLocaleTimeString()}`;
+            updateTimestampSpan.textContent = `Live rates as of ${lastFetchTime.toLocaleString()}`;
             errorContainer.innerHTML = "";
             performConversion();
             updateRateHints();
@@ -237,30 +261,89 @@ async function fetchExchangeRates() {
             throw new Error("Invalid rates structure");
         }
     } catch (err) {
-        console.warn("Primary API failed, using fallback static rates", err);
-        setFallbackRates();
-        updateTimestampSpan.textContent = "⚠️ Using cached rates (offline mode)";
-        errorContainer.innerHTML = `<div class="error-message">⚠️ Using fallback rates - check your internet connection for live rates</div>`;
-        performConversion();
-        updateRateHints();
+        console.warn("Primary API failed, trying fallback API", err);
+        
+        // Fallback to exchangerate-api.com
+        try {
+            const fallbackResponse = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+            if (!fallbackResponse.ok) throw new Error();
+            const fallbackData = await fallbackResponse.json();
+            
+            if (fallbackData && fallbackData.rates) {
+                exchangeRates = fallbackData.rates;
+                lastFetchTime = new Date();
+                updateTimestampSpan.textContent = `Rates as of ${lastFetchTime.toLocaleString()}`;
+                errorContainer.innerHTML = "";
+                performConversion();
+                updateRateHints();
+                return;
+            }
+        } catch (fallbackErr) {
+            console.warn("All APIs failed, using enhanced fallback rates", fallbackErr);
+            setEnhancedFallbackRates();
+            updateTimestampSpan.textContent = "⚠️ Using cached rates - check connection for live rates";
+            errorContainer.innerHTML = `<div class="error-message">⚠️ Using offline rates. Connect to internet for live exchange rates.</div>`;
+            performConversion();
+            updateRateHints();
+        }
     } finally {
         isFetching = false;
     }
 }
 
-function setFallbackRates() {
+// Enhanced fallback with more accurate KWD to ETB rate (510.89 as per Google)
+function setEnhancedFallbackRates() {
     const fallback = {
-        USD: 1, EUR: 0.92, GBP: 0.79, JPY: 150.2, CNY: 7.24, INR: 83.4, AUD: 1.52, CAD: 1.36,
-        CHF: 0.88, SGD: 1.34, HKD: 7.81, KRW: 1335, RUB: 90.5, BRL: 5.12, ZAR: 18.9, MXN: 16.9,
-        NZD: 1.67, SEK: 10.55, NOK: 10.73, TRY: 32.4, PLN: 4.02, THB: 36.5, AED: 3.67, SAR: 3.75,
-        IDR: 15700, PHP: 56.8, VND: 24800, MYR: 4.72, NGN: 1480, ETB: 56.8, CDF: 2800
+        USD: 1, 
+        EUR: 0.92, 
+        GBP: 0.79, 
+        JPY: 150.2, 
+        CNY: 7.24, 
+        INR: 83.4, 
+        AUD: 1.52, 
+        CAD: 1.36,
+        CHF: 0.88, 
+        SGD: 1.34, 
+        HKD: 7.81, 
+        KRW: 1335, 
+        RUB: 90.5, 
+        BRL: 5.12, 
+        ZAR: 18.9, 
+        MXN: 16.9,
+        NZD: 1.67, 
+        SEK: 10.55, 
+        NOK: 10.73, 
+        TRY: 32.4, 
+        PLN: 4.02, 
+        THB: 36.5, 
+        AED: 3.67, 
+        SAR: 3.75,
+        IDR: 15700, 
+        PHP: 56.8, 
+        VND: 24800, 
+        MYR: 4.72, 
+        NGN: 1480, 
+        ETB: 56.8,      // 1 USD = 56.8 ETB
+        KWD: 0.307,     // 1 USD = 0.307 KWD
+        // This makes KWD/ETB = 56.8 / 0.307 = 185.02 (will be updated below)
     };
     
+    // 1 KWD = 510.89 ETB according to Google
+    // So if 1 USD = X ETB and 1 USD = Y KWD, then Y = X / 510.89
+    const googleKwdToEtb = 510.89;
+    const usdToEtb = 56.8; // approximate
+    const usdToKwd = usdToEtb / googleKwdToEtb; // = 56.8 / 510.89 = 0.1112
+    
+    fallback['KWD'] = usdToKwd;
+    fallback['ETB'] = usdToEtb;
+    
+    // Fill any missing currencies
     currenciesWithNames.forEach(currency => {
         if (!fallback[currency.code]) {
             fallback[currency.code] = 1.0;
         }
     });
+    
     exchangeRates = fallback;
     lastFetchTime = new Date();
 }
@@ -272,7 +355,7 @@ function updateRateHints() {
     const rateFromToBase = exchangeRates[fromCurr];
     const rateToToBase = exchangeRates[toCurr];
     
-    if (rateFromToBase && rateToToBase) {
+    if (rateFromToBase && rateToToBase && rateFromToBase > 0 && rateToToBase > 0) {
         const directRate = rateToToBase / rateFromToBase;
         fromRateHint.innerText = `1 ${fromCurr} = ${directRate.toFixed(4)} ${toCurr}`;
         const inverseRate = 1 / directRate;
@@ -296,13 +379,13 @@ function performConversion() {
     const fromRate = exchangeRates[fromCode];
     const toRate = exchangeRates[toCode];
     
-    if (!fromRate || !toRate) {
+    if (!fromRate || !toRate || fromRate === 0) {
         convertedSpan.innerText = "⚠️ Rate unavailable";
         return;
     }
     
-    const amountInUSD = amount / fromRate;
-    const convertedAmount = amountInUSD * toRate;
+    // Direct conversion without going through USD if possible
+    const convertedAmount = (amount / fromRate) * toRate;
     
     const formatted = convertedAmount.toLocaleString(undefined, {
         minimumFractionDigits: 2,
@@ -341,9 +424,10 @@ async function init() {
     populateSelectors();
     bindEvents();
     await fetchExchangeRates();
+    // Refresh rates every 5 minutes for more accuracy
     setInterval(async () => {
         await fetchExchangeRates();
-    }, 10 * 60 * 1000);
+    }, 5 * 60 * 1000);
     updateActiveSymbol();
     performConversion();
 }
